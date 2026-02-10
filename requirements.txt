@@ -1,0 +1,14 @@
+# Core Discord library (supports slash‑commands, intents, embeds, etc.)
+discord.py>=2.3.2
+
+# Asynchronous HTTP client – used by utils/fetcher.py to call the PiggyBank API
+aiohttp>=3.9.3
+
+# YAML parser – charge les templates et la table de commandes
+PyYAML>=6.0.1
+
+# Gestion des variables d’environnement (facultatif mais très pratique)
+python-dotenv>=1.0.0
+
+# (Optionnel) Bibliothèque de logging avancée – utile si vous voulez des logs structurés
+loguru>=0.7.2

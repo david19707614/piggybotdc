@@ -1,0 +1,35 @@
+epoch_change: |
+  🆕✨🔄 NEW EPOCH! ✨🆕
+
+  • {{asset_name}}
+  • Epoch: {{epoch_change}}
+
+cap_change: |
+  ⚡️🔧⚡️ CAPACITY LIMIT CHANGED ⚡️🔧⚡️
+
+  • {{asset_name}}
+  • Change: {{cap_diff}} 
+  • Capacity: {{prev.lst_cap}} → {{lst_cap}} ${{asset_ticker}}
+
+tvl_change: |
+  📈 Capacity changed
+
+  Asset: {{asset_name}}
+  Change: {{tvl_diff}} {{asset_ticker}}
+  Filled: {{lst_tvl}} / {{lst_cap}} ${{asset_ticker}}
+
+stats: |
+  🔎 **Stats {{asset_name}}**
+  • Epoch : {{epoch}}
+  • Vault capacity : {{lst_tvl}} / {{lst_cap}} ${{asset_ticker}}
+  • Asset APY : {{lst_apy}}% (all time)
+  • Current price     : ${{current_price}}
+
+
+status: |
+  📊 **Current status – {{asset_name}}**
+  • Ticker          : {{asset_ticker}}
+  • Epoch           : {{epoch}}
+  • Vault capacity  : {{lst_tvl}} / {{lst_cap}} ${{asset_ticker}}
+  • Asset APY        : {{lst_apy}}% (all time)
+  • Current price     : ${{current_price}}

@@ -1,0 +1,119 @@
+# utils/formatter.py
+import discord
+import time
+import re
+from typing import Dict, Any
+
+def _format_number(value: Any, *, decimals: int = 0) -> str:
+    """
+    Formatte un nombre avec le nombre de décimales demandé.
+    - decimals = 0 → entier (sans décimale)
+    - decimals > 0 → arrondi à `decimals` décimales
+    """
+    try:
+        num = float(value)
+        if decimals == 0:
+            return f"{int(round(num))}"
+        else:
+            fmt = f"{{:.{decimals}f}}"
+            return fmt.format(round(num, decimals))
+    except (ValueError, TypeError):
+        return str(value)
+
+
+def _merge_prev_into_context(current: Dict[str, Any],
+                            prev:   Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Crée un dictionnaire unique contenant :
+    * toutes les clés de `current` (sans préfixe)
+    * toutes les clés de `prev` préfixées par « prev. »
+
+    Si `prev` est vide, chaque placeholder `{{prev.xxx}}` sera remplacé
+    par une chaîne vide (« »). Vous pouvez changer cela en renvoyant
+    « N/A » à la place.
+    """
+    merged = {}
+
+    # 1️⃣ Ajout des valeurs courantes (sans préfixe)
+    for k, v in current.items():
+        merged[k] = v
+
+    # 2️⃣ Ajout des valeurs précédentes avec le préfixe "prev."
+    for k, v in prev.items():
+        merged[f"prev.{k}"] = v
+
+    # 3️⃣ Si aucun snapshot précédent n’existe, on crée des valeurs vides
+    #    pour éviter que le placeholder reste tel quel.
+    #    Ici on remplit uniquement les clés qui pourraient être utilisées.
+    #    Vous pouvez ajouter d’autres clés si vous avez d’autres placeholders.
+    placeholder_keys = [
+        "prev.lst_cap", "prev.lst_tvl", "prev.epoch", "prev.epoch_start"
+    ]
+    for ph in placeholder_keys:
+        if ph not in merged:
+            merged[ph] = ""   # ou "N/A" si vous préférez
+
+    return merged
+
+
+def build_embed(*, tmpl: str, asset: Dict[str, Any], prev: Dict[str, Any]) -> discord.Embed:
+    """
+    Crée un `discord.Embed` à partir d’un template texte et d’un dictionnaire d’asset.
+    - Calcule `last_epoch_seconds` et `epoch_duration`.
+    - Applique les arrondissements demandés.
+    - Fusionne les valeurs précédentes (`prev`) avec le préfixe « prev. ».
+    - Remplace tous les placeholders {{clé}}.
+    - Nettoie les placeholders non remplacés.
+    - Sépare le symbole `$` du nombre (ex. « 400$ » → « 400 $ »).
+    """
+    now_ts = int(time.time())
+
+    # ------------------- 1️⃣ Calculs dérivés -------------------
+    epoch_start = asset.get("epoch_start")
+    last_epoch_seconds = now_ts - int(epoch_start) if isinstance(epoch_start, (int, float)) else 0
+
+    epoch_duration = None
+    if prev and prev.get("epoch_start"):
+        epoch_duration = int(prev["epoch_start"]) - int(prev.get("epoch_start", 0))
+
+    # ------------------- 2️⃣ Préparer les données -------------------
+    # Copie superficielle de l’asset
+    data = dict(asset)
+
+    # Ajout des champs dérivés
+    data["last_epoch_seconds"] = last_epoch_seconds
+    if epoch_duration is not None:
+        data["epoch_duration"] = epoch_duration
+
+    # Arrondissements demandés
+    data["lst_tvl"] = _format_number(data.get("lst_tvl"), decimals=0)
+    data["lst_cap"] = _format_number(data.get("lst_cap"), decimals=0)
+    data["lst_apy"] = _format_number(data.get("lst_apy"), decimals=2)
+
+    # ------------------- 3️⃣ Fusion avec le snapshot précédent -------------------
+    context = _merge_prev_into_context(current=data, prev=prev)
+
+    # ------------------- 4️⃣ Remplacement des placeholders -------------------
+    rendered = tmpl
+    for key, val in context.items():
+        placeholder = f"{{{{{key}}}}}"
+        rendered = rendered.replace(placeholder, str(val))
+
+    # Nettoyage des placeholders qui n’ont pas été remplacés
+    rendered = re.sub(r"\{\{.*?\}\}", "", rendered)
+
+    # Séparation du symbole "$" collé au nombre (ex. "400$" → "400 $")
+    rendered = re.sub(r"(\d+)\$", r"\1 $", rendered)
+
+    # ------------------- 5️⃣ Construction de l’embed -------------------
+    embed = discord.Embed(description=rendered, colour=0x2C8FFF)
+
+    # Icône du token / asset
+    thumb_url = asset.get("asset_icon") or asset.get("lst_icon")
+    if thumb_url:
+        embed.set_thumbnail(url=thumb_url)
+
+    # Footer avec le ticker (pratique pour le debug)
+    embed.set_footer(text=f"Ticker : {asset.get('asset_ticker', 'unknown')}")
+
+    return embed
