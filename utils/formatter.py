@@ -92,8 +92,8 @@ def build_embed(*, tmpl: str, asset: Dict[str, Any], prev: Dict[str, Any]) -> di
     last_epoch_seconds = now_ts - int(epoch_start) if isinstance(epoch_start, (int, float)) else 0
 
     epoch_duration = None
-    if prev and prev.get("epoch_start"):
-        epoch_duration = int(prev["epoch_start"]) - int(prev.get("epoch_start", 0))
+    if prev and prev.get("epoch_start") and epoch_start is not None:
+        epoch_duration = int(epoch_start) - int(prev["epoch_start"])
 
     # ---------- 2️⃣ Préparer les données ----------
     data = dict(asset)                     # copie superficielle
