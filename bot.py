@@ -195,11 +195,11 @@ async def poll_assets():
                 prev_cap = prev_snapshot.get(ticker, {}).get("lst_cap")
                 cur_cap  = current[ticker].get("lst_cap")
                 if prev_cap is not None and cur_cap is not None:
-                    # différence absolue (positive ou négative)
                     diff = cur_cap - prev_cap
-                    # on stocke deux variantes utiles
-                    current[ticker]["cap_diff"] = f"{diff:+}"   # ex. "+100" ou "-20"
-                    # on garde aussi la version brute au cas où le template voudrait le format décimal
+                    # ----►  INTEGER‑ONLY diff for the embed  ◄----
+                    # Use round() if you want conventional rounding, otherwise int() truncates.
+                    current[ticker]["cap_diff"] = f"{int(round(diff)):+}"
+                    # Keep the raw numeric diff in case you need it elsewhere
                     current[ticker]["cap_diff_raw"] = diff
 
             # ----- TVL (lst_tvl) -----
@@ -207,9 +207,44 @@ async def poll_assets():
                 prev_tvl = prev_snapshot.get(ticker, {}).get("lst_tvl")
                 cur_tvl  = current[ticker].get("lst_tvl")
                 if prev_tvl is not None and cur_tvl is not None:
-                    diff = cur_tvl - prev_tvl
-                    current[ticker]["tvl_diff"] = f"{diff:+}"
-                    current[ticker]["tvl_diff_raw"] = diff
+                    # 1️⃣ Différence en **tokens**
+                    diff_tokens = cur_tvl - prev_tvl
+                    current[ticker]["tvl_diff"] = f"{diff_tokens:+}"
+
+                    # 2️⃣ Valeur brute (nombre) – on la garde pour d’éventuels usages
+                    current[ticker]["tvl_diff_raw"] = diff_tokens
+
+                    # ---------------------------------------------------------
+                    # 👉  CONVERSION EN DOLLARS SI LE TICKER EST SPYX OU JITOSOL
+                    # ---------------------------------------------------------
+                    if ticker.upper() in ("SPYX", "JITOSOL"):
+                        # Le prix actuel du token doit être présent dans l’objet asset
+                        # (le fetcher le fournit généralement sous la clé `current_price`)
+                        price_usd = current[ticker].get("current_price")
+                        if price_usd is None:
+                            # Si le prix n’est pas disponible, on ne peut pas convertir.
+                            # On retombe sur la règle « par token » (fallback).
+                            usd_amount = abs(diff_tokens)
+                        else:
+                            usd_amount = abs(diff_tokens) * float(price_usd)
+                    else:
+                        # Pour USDC (déjà en dollars) ou tout autre actif déjà exprimé en $
+                        usd_amount = abs(diff_tokens)
+
+                    # ---------------------------------------------------------
+                    # 👉  SÉLECTION DE L’EMOJI SELON LA VALEUR EN DOLLARS
+                    # ---------------------------------------------------------
+                    if usd_amount < 1_000:
+                        emoji = "🦐"
+                    elif usd_amount <= 10_000:
+                        emoji = "🐬"
+                    elif usd_amount <= 50_000:
+                        emoji = "🐋"                        
+                    else:
+                        emoji = "🐙"
+
+                    # On stocke l’emoji dans le dictionnaire qui sera passé au template
+                    current[ticker]["tvl_emoji"] = emoji
 
             # ----- EPOCH -----
             if change_type == "epoch_change":

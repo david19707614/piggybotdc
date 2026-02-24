@@ -2,7 +2,7 @@ import aiohttp
 import json
 import os
 
-API_URL = ""
+API_URL = "https://app.piggybank.fi/api/v0/static/assets"
 TEST_FILE = "data/test-assets.json"
 
 async def load_assets(test_mode: bool = False) -> dict:

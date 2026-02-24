@@ -12,11 +12,12 @@ cap_change: |
   • Capacity: {{prev.lst_cap}} → {{lst_cap}} ${{asset_ticker}}
 
 tvl_change: |
-  📈 Capacity changed
-
+  {{tvl_icon}} Capacity changed
   Asset: {{asset_name}}
-  Change: {{tvl_diff}} {{asset_ticker}}
+  Change: {{tvl_diff}} {{asset_ticker}}  {{tvl_emoji}}
   Filled: {{lst_tvl}} / {{lst_cap}} ${{asset_ticker}}
+
+  {{capacity_bar}}
 
 stats: |
   🔎 **Stats {{asset_name}}**
@@ -24,6 +25,8 @@ stats: |
   • Vault capacity : {{lst_tvl}} / {{lst_cap}} ${{asset_ticker}}
   • Asset APY : {{lst_apy}}% (all time)
   • Current price     : ${{current_price}}
+
+  {{capacity_bar}}
 
 
 status: |
@@ -33,3 +36,5 @@ status: |
   • Vault capacity  : {{lst_tvl}} / {{lst_cap}} ${{asset_ticker}}
   • Asset APY        : {{lst_apy}}% (all time)
   • Current price     : ${{current_price}}
+
+  {{capacity_bar}}
