@@ -17,6 +17,7 @@ from utils.comparer import detect_changes
 from utils.enricher import enrich_asset_for_change
 from utils.fetcher import FetchError, load_assets_with_retry
 from utils.formatter import build_embed
+from utils.vault_detector import detect_new_vaults, find_vault_assets
 
 # -------------------------------------------------
 # Environment
@@ -31,6 +32,7 @@ ADMIN_ID = int(os.getenv("ADMIN_ID"))
 # Constants
 # -------------------------------------------------
 SNAPSHOT_PATH = os.path.join("data", "last_snapshot.json")
+KNOWN_VAULTS_PATH = os.path.join("data", "known_vaults.json")
 TICKERS = ["USDC", "SPYx", "JITOSOL"]
 
 
@@ -69,6 +71,38 @@ def _save_snapshot_to_disk(snapshot: dict) -> None:
 
 
 # -------------------------------------------------
+# Known vaults persistence
+# -------------------------------------------------
+def _load_known_vaults() -> set[str]:
+    if not os.path.isfile(KNOWN_VAULTS_PATH):
+        return set()
+    try:
+        with open(KNOWN_VAULTS_PATH, "r", encoding="utf-8") as f:
+            return set(json.load(f))
+    except Exception as exc:
+        logger.warning("Failed to load known vaults: {}", exc)
+        return set()
+
+
+def _save_known_vaults(tickers: set[str]) -> None:
+    try:
+        dir_name = os.path.dirname(KNOWN_VAULTS_PATH) or "."
+        fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(sorted(tickers), f)
+            os.replace(tmp_path, KNOWN_VAULTS_PATH)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+    except Exception as exc:
+        logger.error("Failed to save known vaults: {}", exc)
+
+
+# -------------------------------------------------
 # Admin check
 # -------------------------------------------------
 def is_admin(ctx: commands.Context) -> bool:
@@ -85,6 +119,7 @@ class PiggyBotCog(commands.Cog):
         self.channel: discord.TextChannel | None = None
         self.session: aiohttp.ClientSession | None = None
         self.templates: dict = {}
+        self.known_vault_tickers: set[str] = set()
 
     # -- lifecycle ------------------------------------------------
 
@@ -99,11 +134,17 @@ class PiggyBotCog(commands.Cog):
         else:
             logger.info("No existing snapshot — starting with empty state")
 
+        self.known_vault_tickers = _load_known_vaults()
+        if self.known_vault_tickers:
+            logger.info("Known vaults loaded: {}", self.known_vault_tickers)
+
     async def cog_unload(self) -> None:
         self.poll_loop.cancel()
         if self.prev_snapshot:
             _save_snapshot_to_disk(self.prev_snapshot)
             logger.info("Snapshot flushed to disk on shutdown")
+        if self.known_vault_tickers:
+            _save_known_vaults(self.known_vault_tickers)
         if self.session and not self.session.closed:
             await self.session.close()
             logger.info("HTTP session closed")
@@ -148,6 +189,26 @@ class PiggyBotCog(commands.Cog):
         except FetchError:
             # Already logged inside load_assets_with_retry
             return
+
+        # -- new vault detection --
+        if not self.known_vault_tickers:
+            # First run: seed from current data, don't announce
+            self.known_vault_tickers = find_vault_assets(assets)
+            _save_known_vaults(self.known_vault_tickers)
+            logger.info("Seeded known vaults: {}", self.known_vault_tickers)
+        else:
+            new_vaults = detect_new_vaults(assets, self.known_vault_tickers)
+            for ticker in new_vaults:
+                logger.info("New vault detected: {}", ticker)
+                embed = build_embed(
+                    tmpl=self.templates["new_vault"],
+                    asset=assets[ticker],
+                    prev={},
+                )
+                await self.channel.send(embed=embed)
+                self.known_vault_tickers.add(ticker)
+            if new_vaults:
+                _save_known_vaults(self.known_vault_tickers)
 
         current = {t: assets[t] for t in TICKERS if t in assets}
         changes = detect_changes(self.prev_snapshot, current)
