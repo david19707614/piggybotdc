@@ -8,7 +8,7 @@ cap_change: |
   ⚡️🔧⚡️ CAPACITY LIMIT CHANGED ⚡️🔧⚡️
 
   • {{asset_name}}
-  • Change: {{cap_diff}} 
+  • Change: {{cap_diff}}
   • Capacity: {{prev.lst_cap}} → {{lst_cap}} ${{asset_ticker}}
 
 tvl_change: |
@@ -36,5 +36,23 @@ status: |
   • Vault capacity  : {{lst_tvl}} / {{lst_cap}} ${{asset_ticker}}
   • Asset APY        : {{lst_apy}}% (all time)
   • Current price     : ${{current_price}}
+
+  {{capacity_bar}}
+
+vault_nearly_full: |
+  🚨 **VAULT NEARLY FULL** 🚨
+
+  • {{asset_name}} ({{asset_ticker}})
+  • Fill: {{fill_pct}}%
+  • Remaining: {{remaining}} {{asset_ticker}}
+
+  {{capacity_bar}}
+
+vault_space_opened: |
+  🟢 **DEPOSITS OPEN** 🟢
+
+  • {{asset_name}} ({{asset_ticker}})
+  • Fill: {{fill_pct}}%
+  • Available: {{remaining}} {{asset_ticker}}
 
   {{capacity_bar}}

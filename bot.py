@@ -13,6 +13,7 @@ from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from loguru import logger
 
+from utils.capacity import check_deposit_alerts, enrich_capacity_fields
 from utils.comparer import detect_changes
 from utils.enricher import enrich_asset_for_change
 from utils.fetcher import FetchError, load_assets_with_retry
@@ -159,6 +160,20 @@ class PiggyBotCog(commands.Cog):
                 embed = build_embed(
                     tmpl=self.templates[change_type],
                     asset=current[ticker],
+                    prev=self.prev_snapshot.get(ticker, {}),
+                )
+                await self.channel.send(embed=embed)
+
+        # -- deposit opportunity alerts --
+        for ticker in TICKERS:
+            alerts = check_deposit_alerts(ticker, current,
+                                          self.prev_snapshot)
+            for alert_type in alerts:
+                asset_copy = dict(current[ticker])
+                enrich_capacity_fields(asset_copy)
+                embed = build_embed(
+                    tmpl=self.templates[alert_type],
+                    asset=asset_copy,
                     prev=self.prev_snapshot.get(ticker, {}),
                 )
                 await self.channel.send(embed=embed)
